@@ -7,8 +7,6 @@ A self-hosted, open-source video and audio downloader with a clean web UI. Paste
 
 https://github.com/user-attachments/assets/419d3e50-c933-444b-8cab-a9724986ba05
 
-![ReClip MP3 Mode](assets/preview-mp3.png)
-
 ## Features
 
 - Download videos from 1000+ supported sites (via [yt-dlp](https://github.com/yt-dlp/yt-dlp))
