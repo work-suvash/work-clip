@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WorkClip — Free Media Downloader</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/icon32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/static/icons/icon16.png">
+  <link rel="apple-touch-icon" sizes="128x128" href="/static/icons/icon128.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #070912;
+      --fg: #f6f7fb;
+      --accent: #7c5cff;
+      --accent-hover: #00d4ff;
+      --muted: #aab4cf;
+      --card: rgba(16, 20, 38, 0.88);
+      --card-border: rgba(138, 153, 255, 0.26);
+      --success: #42e695;
+      --error: #ff5f7e;
+      --radius: 14px;
+      --shimmer: linear-gradient(90deg, rgba(43, 50, 82, 0.9) 25%, rgba(59, 70, 112, 0.9) 50%, rgba(43, 50, 82, 0.9) 75%);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'DM Mono', monospace;
+      background:
+        radial-gradient(circle at 18% 8%, rgba(124, 92, 255, 0.28), transparent 32%),
+        radial-gradient(circle at 82% 20%, rgba(0, 212, 255, 0.20), transparent 30%),
+        radial-gradient(circle at 50% 95%, rgba(255, 61, 119, 0.14), transparent 34%),
+        var(--bg);
+      color: var(--fg);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      opacity: 0.08;
+      pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+      background-size: 128px;
+    }
+
+    .page {
+      max-width: 620px;
+      margin: 0 auto;
+      padding: 60px 24px 80px;
+    }
+
+    .brand {
+      margin-bottom: 48px;
+      text-align: center;
+    }
+    .brand h1 {
+      font-family: 'Instrument Serif', serif;
+      font-size: 4.2rem;
+      font-weight: 400;
+      letter-spacing: -0.03em;
+      line-height: 1;
+      display: inline-block;
+      text-shadow: 0 0 30px rgba(0, 212, 255, 0.24);
+      isolation: isolate;
+    }
+    .brand h1 .brand-work {
+      position: relative;
+      color: #9df8ff;
+      background: linear-gradient(120deg, #ffffff 0%, #00d4ff 42%, #9d7cff 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .brand h1 .brand-work::after {
+      content: '';
+      position: absolute;
+      left: 4px;
+      right: 2px;
+      bottom: 2px;
+      height: 9px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(0, 212, 255, 0.45), rgba(124, 92, 255, 0.45));
+      box-shadow: 0 0 18px rgba(0, 212, 255, 0.28);
+      z-index: -1;
+    }
+    .brand h1 em {
+      font-style: italic;
+      color: #ffd166;
+      background: linear-gradient(135deg, #ff4fd8, #ffd166 48%, #00f5d4);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0 14px rgba(255, 79, 216, 0.34));
+    }
+    .brand p {
+      margin-top: 10px;
+      font-size: 0.78rem;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    textarea {
+      width: 100%;
+      padding: 18px 20px;
+      border: 1.5px solid var(--card-border);
+      border-radius: var(--radius);
+      background: var(--card);
+      color: var(--fg);
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      font-family: 'DM Mono', monospace;
+      font-size: 0.88rem;
+      outline: none;
+      resize: vertical;
+      min-height: 56px;
+      transition: border-color 0.25s, box-shadow 0.25s;
+      margin-bottom: 6px;
+    }
+    textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.18), 0 0 26px rgba(0, 212, 255, 0.14);
+    }
+    textarea::placeholder { color: var(--muted); }
+
+    .hint {
+      font-size: 0.7rem;
+      color: var(--muted);
+      margin-bottom: 20px;
+      letter-spacing: 0.02em;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 6px;
+      align-items: center;
+    }
+    .pill-group {
+      display: flex;
+      border: 1.5px solid var(--card-border);
+      border-radius: 10px;
+      overflow: hidden;
+      background: var(--card);
+    }
+    .pill {
+      padding: 9px 18px;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.76rem;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.2s;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+    .pill.active { background: linear-gradient(135deg, var(--accent), var(--accent-hover)); color: #fff; }
+    .pill:not(.active):hover { color: var(--fg); }
+
+    .fetch-btn {
+      flex: 1;
+      padding: 10px 20px;
+      border: 1.5px solid var(--card-border);
+      border-radius: 10px;
+      background: transparent;
+      color: var(--fg);
+      font-family: 'DM Mono', monospace;
+      font-size: 0.82rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s, transform 0.1s;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .fetch-btn:hover { border-color: var(--muted); color: var(--fg); }
+    .fetch-btn:active { transform: scale(0.98); }
+    .fetch-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    /* Cards */
+    .cards { margin-top: 24px; }
+
+    .card {
+      display: flex;
+      gap: 14px;
+      border: 1.5px solid var(--card-border);
+      border-radius: var(--radius);
+      background: var(--card);
+      padding: 14px;
+      margin-bottom: 10px;
+      animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .card-thumb {
+      width: 120px;
+      min-width: 120px;
+      height: 80px;
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--card-border);
+      flex-shrink: 0;
+      position: relative;
+    }
+    .card-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    /* No-thumbnail icon */
+    .card-thumb .no-thumb {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+    }
+    .card-thumb .no-thumb svg {
+      width: 28px;
+      height: 28px;
+      opacity: 0.5;
+    }
+
+    /* Shimmer skeleton for loading state */
+    .card-thumb.loading {
+      background: var(--shimmer);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+    }
+    .skeleton-line {
+      height: 12px;
+      border-radius: 4px;
+      background: var(--shimmer);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      margin-bottom: 6px;
+    }
+    .skeleton-line.short { width: 40%; height: 10px; }
+    .skeleton-line.medium { width: 75%; }
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    .card-body {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .card-title {
+      font-family: 'Instrument Serif', serif;
+      font-size: 1rem;
+      line-height: 1.3;
+      color: var(--fg);
+      margin-bottom: 2px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .card-meta {
+      font-size: 0.68rem;
+      color: var(--muted);
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .card-actions {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .card-dl-btn {
+      padding: 6px 14px;
+      border: none;
+      border-radius: 7px;
+      background: var(--fg);
+      color: var(--bg);
+      font-family: 'DM Mono', monospace;
+      font-size: 0.7rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+    .card-dl-btn:hover { background: #2d2d2a; }
+    .card-dl-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .card-dl-btn.done { background: var(--success); color: #fff; }
+    .card-dl-btn.error { background: var(--error); color: #fff; }
+
+    .card-status {
+      font-size: 0.68rem;
+      color: var(--muted);
+    }
+    .card-status.downloading { color: var(--accent); }
+    .card-status.done { color: var(--success); }
+    .card-status.error { color: var(--error); }
+
+    .q-chip {
+      padding: 4px 10px;
+      border: 1.5px solid var(--card-border);
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      font-family: 'DM Mono', monospace;
+      font-size: 0.65rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .q-chip.active {
+      border-color: var(--fg);
+      color: var(--fg);
+      background: rgba(26,26,24,0.04);
+    }
+    .q-chip:hover:not(.active) { border-color: var(--muted); }
+
+    /* Error card */
+    .card.card-error {
+      border-color: rgba(196, 61, 61, 0.2);
+      background: rgba(196, 61, 61, 0.03);
+    }
+    .card-error-icon {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(196, 61, 61, 0.08);
+      color: var(--error);
+    }
+    .card-error-icon svg {
+      width: 24px;
+      height: 24px;
+    }
+    .card-error-msg {
+      font-size: 0.72rem;
+      color: var(--error);
+      margin-top: 2px;
+      line-height: 1.4;
+    }
+    .card-error-url {
+      font-size: 0.65rem;
+      color: var(--muted);
+      word-break: break-all;
+      margin-top: 4px;
+    }
+
+    /* Download all bar */
+    .dl-all-bar {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+    }
+    .dl-all-btn {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 10px;
+      background: var(--fg);
+      color: var(--bg);
+      font-family: 'DM Mono', monospace;
+      font-size: 0.82rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .dl-all-btn:hover { background: #2d2d2a; }
+    .dl-all-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .spin {
+      display: inline-block;
+      width: 10px; height: 10px;
+      border: 2px solid currentColor;
+      border-right-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .footer {
+      margin-top: 48px;
+      text-align: center;
+      font-size: 0.74rem;
+      font-weight: 500;
+      letter-spacing: 0.065em;
+      text-transform: uppercase;
+      line-height: 2;
+      text-shadow: 0 0 18px rgba(0, 245, 255, 0.28);
+    }
+    .footer span {
+      display: inline-block;
+      color: #f8fbff;
+      background: linear-gradient(90deg, #ffffff, #00f5ff, #ffea00, #ff4fd8, #ffffff);
+      background-size: 280% auto;
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: platformGlow 5.5s ease-in-out infinite, platformFloat 3.8s ease-in-out infinite;
+      filter: drop-shadow(0 0 10px rgba(0, 245, 255, 0.26));
+      will-change: transform, filter, background-position;
+    }
+    .footer span:nth-of-type(1) {
+      animation-delay: 0s, 0s;
+    }
+    .footer span:nth-of-type(2) {
+      animation-delay: 0.28s, 0.28s;
+    }
+    .footer span:nth-of-type(3) {
+      animation-delay: 0.56s, 0.56s;
+    }
+    .footer span:hover {
+      filter: saturate(1.6);
+    }
+    @keyframes platformGlow {
+      0%, 100% { background-position: 0% center; filter: saturate(1); }
+      50% { background-position: 100% center; filter: saturate(1.35); }
+    }
+    @keyframes platformFloat {
+      0%, 100% { transform: translateY(0); opacity: 0.96; }
+      50% { transform: translateY(-4px); opacity: 1; }
+    }
+
+    /* Mobile */
+    @media (max-width: 500px) {
+      .brand h1 { font-size: 3rem; }
+      .page { padding: 40px 16px 60px; }
+      .card { flex-direction: column; gap: 10px; }
+      .card-thumb {
+        width: 100%;
+        min-width: unset;
+        height: 160px;
+      }
+      .card-title { white-space: normal; }
+      .controls { flex-wrap: wrap; }
+      .fetch-btn { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="brand">
+      <h1><span class="brand-work">Work</span><em>Clip</em></h1>
+    </div>
+
+    <textarea id="urls" placeholder="Paste one or more URLs..." rows="2"></textarea>
+    <p class="hint">Multiple links? Separate with spaces, commas, or newlines.</p>
+
+    <div class="controls">
+      <div class="pill-group">
+        <button class="pill active" data-format="video" type="button">MP4</button>
+        <button class="pill" data-format="audio" type="button">MP3</button>
+      </div>
+      <button class="fetch-btn" id="goBtn" type="button">Fetch</button>
+    </div>
+
+    <div id="cards" class="cards"></div>
+
+    <div class="footer">
+      <span>1000+ more</span>
+    </div>
+  </div>
+
+  <script>
+    let currentFormat = 'video';
+    let cardData = [];
+
+    const goBtn = document.getElementById('goBtn');
+    const urlsInput = document.getElementById('urls');
+    const cardsEl = document.getElementById('cards');
+
+    function setFormat(btn) {
+      document.querySelectorAll('.pill').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentFormat = btn.dataset.format;
+    }
+
+    function parseUrls(text) {
+      return [...new Set(text.split(/[\s,]+/).map(u => u.trim()).filter(u => u.startsWith('http')))];
+    }
+
+    function fmtDur(s) {
+      if (!s) return '';
+      const m = Math.floor(s / 60);
+      const sec = Math.floor(s % 60);
+      return `${m}:${sec.toString().padStart(2, '0')}`;
+    }
+
+    function esc(s) {
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    function friendlyError(err) {
+      if (!err) return 'Something went wrong';
+      if (err.includes('Unsupported URL')) return 'This URL is not supported';
+      if (err.includes('Video unavailable')) return 'Video is unavailable or private';
+      if (err.includes('Private video')) return 'This video is private';
+      if (err.includes('HTTP Error 403')) return 'Access denied by the platform';
+      if (err.includes('HTTP Error 404')) return 'Video not found';
+      if (err.includes('copyright')) return 'Video blocked due to copyright';
+      if (err.includes('geo')) return 'Video not available in your region';
+      if (err.includes('timed out') || err.includes('Timed out')) return 'Request timed out — try again';
+      if (err.includes('network') || err.includes('Network')) return 'Network error — check your connection';
+      return err.length > 90 ? err.slice(0, 90) + '...' : err;
+    }
+
+    function noThumbSvg() {
+      return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2"/><circle cx="8" cy="8" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>';
+    }
+
+    function audioSvg() {
+      return '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
+    }
+
+    function errorSvg() {
+      return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+    }
+
+    urlsInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); go(); }
+    });
+
+    goBtn.addEventListener('click', go);
+
+    document.querySelectorAll('.pill').forEach(btn => btn.addEventListener('click', () => setFormat(btn)));
+
+    async function go() {
+      const urls = parseUrls(urlsInput.value);
+      if (!urls.length) return;
+
+      goBtn.disabled = true;
+      goBtn.textContent = 'Loading...';
+      cardsEl.innerHTML = '';
+      cardData = [];
+
+      for (let i = 0; i < urls.length; i++) {
+        const url = urls[i];
+        const idx = cardData.length;
+        cardData.push({ url, status: 'loading' });
+        renderCard(idx);
+
+        try {
+          const res = await fetch('/api/info', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url }),
+          });
+          const data = await res.json();
+          if (data.error) {
+            cardData[idx] = { ...cardData[idx], status: 'info-error', error: data.error };
+          } else {
+            cardData[idx] = {
+              ...cardData[idx],
+              status: 'ready',
+              title: data.title || '',
+              thumbnail: data.thumbnail || '',
+              duration: data.duration,
+              uploader: data.uploader || '',
+              formats: data.formats || [],
+              selectedFormatId: data.formats?.[0]?.id || null,
+            };
+          }
+        } catch (err) {
+          cardData[idx] = { ...cardData[idx], status: 'info-error', error: err.message };
+        }
+        renderCard(idx);
+      }
+
+      if (cardData.filter(c => c.status === 'ready').length > 1) {
+        renderDownloadAll();
+      }
+
+      goBtn.disabled = false;
+      goBtn.textContent = 'Fetch';
+    }
+
+    function renderCard(idx) {
+      const c = cardData[idx];
+      let el = document.getElementById(`card-${idx}`);
+      if (!el) {
+        el = document.createElement('div');
+        el.id = `card-${idx}`;
+        el.className = 'card';
+        cardsEl.appendChild(el);
+      }
+
+      if (c.status === 'loading') {
+        el.className = 'card';
+        el.innerHTML = '<div class="card-thumb loading"></div><div class="card-body"><div class="skeleton-line medium"></div><div class="skeleton-line short"></div></div>';
+        return;
+      }
+
+      if (c.status === 'info-error') {
+        el.className = 'card card-error';
+        el.innerHTML = `<div class="card-thumb"><div class="card-error-icon">${errorSvg()}</div></div><div class="card-body"><div class="card-title" style="color:var(--error)">Could not fetch video</div><div class="card-error-msg">${esc(friendlyError(c.error || ''))}</div><div class="card-error-url">${esc(c.url)}</div></div>`;
+        return;
+      }
+
+      el.className = 'card';
+      const isAudio = currentFormat === 'audio';
+
+      let thumbHtml;
+      if (isAudio) {
+        thumbHtml = `<div class="no-thumb" style="color:var(--accent)">${audioSvg()}</div>`;
+      } else if (c.thumbnail) {
+        thumbHtml = `<img src="${esc(c.thumbnail)}" alt="">`;
+      } else {
+        thumbHtml = `<div class="no-thumb">${noThumbSvg()}</div>`;
+      }
+
+      let qualityChips = '';
+      if (!isAudio && c.formats && c.formats.length > 1) {
+        qualityChips = c.formats.map(f =>
+          `<button class="q-chip${f.id === c.selectedFormatId ? ' active' : ''}" data-action="quality" data-idx="${idx}" data-format-id="${esc(f.id)}" type="button">${esc(f.label)}</button>`
+        ).join('');
+      }
+
+      let actionHtml = '';
+      if (c.status === 'ready') {
+        actionHtml = `<button class="card-dl-btn" data-action="download" data-idx="${idx}" type="button">Download</button>${qualityChips}`;
+      } else if (c.status === 'downloading') {
+        actionHtml = '<span class="card-status downloading"><span class="spin"></span> Downloading...</span>';
+      } else if (c.status === 'done') {
+        actionHtml = `<button class="card-dl-btn done" data-action="save" data-idx="${idx}" type="button">Save</button><span class="card-status done">${esc(c.filename || '')}</span>`;
+      } else if (c.status === 'error') {
+        actionHtml = `<button class="card-dl-btn" data-action="download" data-idx="${idx}" type="button">Retry</button><span class="card-status error">${esc(friendlyError(c.error || 'Download failed'))}</span>`;
+      }
+
+      el.innerHTML = `<div class="card-thumb">${thumbHtml}</div><div class="card-body"><div class="card-title">${esc(c.title || 'Untitled')}</div><div class="card-meta">${esc(c.uploader)}${c.duration ? ' · ' + fmtDur(c.duration) : ''}</div><div class="card-actions">${actionHtml}</div></div>`;
+    }
+
+    function renderDownloadAll() {
+      const existing = document.getElementById('dl-all-bar');
+      if (existing) existing.remove();
+
+      const bar = document.createElement('div');
+      bar.id = 'dl-all-bar';
+      bar.className = 'dl-all-bar';
+      bar.innerHTML = '<button class="dl-all-btn" data-action="download-all" type="button">Download All</button>';
+      cardsEl.appendChild(bar);
+    }
+
+    function pickFormat(idx, formatId) {
+      cardData[idx].selectedFormatId = formatId;
+      renderCard(idx);
+    }
+
+    async function dlCard(idx) {
+      const c = cardData[idx];
+      c.status = 'downloading';
+      c.error = null;
+      renderCard(idx);
+
+      try {
+        const res = await fetch('/api/download', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            url: c.url,
+            format: currentFormat,
+            format_id: c.selectedFormatId,
+            title: c.title || '',
+          }),
+        });
+        const data = await res.json();
+        if (data.error) {
+          c.status = 'error';
+          c.error = data.error;
+          renderCard(idx);
+          return;
+        }
+        c.jobId = data.job_id;
+        pollCard(idx);
+      } catch (err) {
+        c.status = 'error';
+        c.error = err.message;
+        renderCard(idx);
+      }
+    }
+
+    function pollCard(idx) {
+      const c = cardData[idx];
+      const iv = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/status/${c.jobId}`);
+          const data = await res.json();
+          if (data.status === 'done') {
+            clearInterval(iv);
+            c.status = 'done';
+            c.filename = data.filename;
+            renderCard(idx);
+            saveCard(idx);
+          } else if (data.status === 'error') {
+            clearInterval(iv);
+            c.status = 'error';
+            c.error = data.error;
+            renderCard(idx);
+          }
+        } catch {
+          clearInterval(iv);
+          c.status = 'error';
+          c.error = 'Lost connection to server';
+          renderCard(idx);
+        }
+      }, 1000);
+    }
+
+    function saveCard(idx) {
+      const c = cardData[idx];
+      if (!c.jobId) return;
+      const a = document.createElement('a');
+      a.href = `/api/file/${c.jobId}`;
+      a.download = c.filename || 'download';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
+    async function dlAll() {
+      const btn = document.querySelector('.dl-all-btn');
+      if (btn) { btn.disabled = true; btn.textContent = 'Downloading...'; }
+
+      for (let i = 0; i < cardData.length; i++) {
+        if (cardData[i].status === 'ready') {
+          await dlCard(i);
+        }
+      }
+
+      if (btn) { btn.disabled = false; btn.textContent = 'Download All'; }
+    }
+
+    cardsEl.addEventListener('click', e => {
+      const target = e.target.closest('button[data-action]');
+      if (!target) return;
+      const action = target.dataset.action;
+      const idx = Number(target.dataset.idx);
+
+      if (action === 'quality') pickFormat(idx, target.dataset.formatId);
+      if (action === 'download') dlCard(idx);
+      if (action === 'save') saveCard(idx);
+      if (action === 'download-all') dlAll();
+    });
+  </script>
+</body>
+</html>

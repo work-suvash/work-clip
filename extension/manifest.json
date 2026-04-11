@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "WorkClip Side Panel",
+  "version": "1.0.0",
+  "description": "Open WorkClip in the Chrome side panel and download media through the WorkClip backend.",
+  "permissions": ["sidePanel", "storage", "downloads"],
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "Open WorkClip",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  }
+}

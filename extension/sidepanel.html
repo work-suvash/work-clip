@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WorkClip</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <div class="page">
+    <div class="brand">
+      <h1><span class="brand-work">Work</span><em>Clip</em></h1>
+    </div>
+
+    <div class="server-row">
+      <input id="serverUrl" type="url" spellcheck="false" placeholder="Server URL...">
+      <button id="saveServerBtn" type="button">Set</button>
+    </div>
+    <p id="serverStatus" class="server-hint">Enter your WorkClip server URL</p>
+
+    <textarea id="urls" placeholder="Paste one or more URLs..." rows="3"></textarea>
+    <p class="hint">Multiple links? Separate with spaces, commas, or newlines.</p>
+
+    <div class="controls">
+      <div class="pill-group">
+        <button class="pill active" data-format="video" type="button">MP4</button>
+        <button class="pill" data-format="audio" type="button">MP3</button>
+      </div>
+      <button class="fetch-btn" id="goBtn" type="button">Fetch</button>
+    </div>
+
+    <div id="cards" class="cards"></div>
+
+    <div class="footer">
+      <span>1000+ more</span>
+    </div>
+  </div>
+
+  <script src="sidepanel.js"></script>
+</body>
+</html>

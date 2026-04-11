@@ -4,41 +4,42 @@ import glob
 import json
 import subprocess
 import threading
+import imageio_ffmpeg
 from flask import Flask, request, jsonify, send_file, render_template
 
 app = Flask(__name__)
-
-
-@app.after_request
-def add_cors(response):
-    response.headers['Access-Control-Allow-Origin'] = '*'
-    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-    response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
-    return response
-
-
-@app.route('/api/info', methods=['OPTIONS'])
-@app.route('/api/download', methods=['OPTIONS'])
-@app.route('/api/status/<job_id>', methods=['OPTIONS'])
-@app.route('/api/file/<job_id>', methods=['OPTIONS'])
-def options_handler(**kwargs):
-    return '', 204
-
-
 DOWNLOAD_DIR = os.path.join(os.path.dirname(__file__), "downloads")
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
+FFMPEG_PATH = imageio_ffmpeg.get_ffmpeg_exe()
+FFMPEG_DIR = os.path.dirname(FFMPEG_PATH)
+
+# Build a subprocess environment that always has ffmpeg in PATH
+_base_env = os.environ.copy()
+_base_env["PATH"] = FFMPEG_DIR + os.pathsep + _base_env.get("PATH", "")
+SUBPROCESS_ENV = _base_env
+
 jobs = {}
+
+
+@app.after_request
+def add_extension_headers(response):
+    origin = request.headers.get("Origin", "")
+    if origin.startswith("chrome-extension://"):
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    return response
 
 
 def run_download(job_id, url, format_choice, format_id):
     job = jobs[job_id]
     out_template = os.path.join(DOWNLOAD_DIR, f"{job_id}.%(ext)s")
 
-    cmd = ["yt-dlp", "--no-playlist", "-o", out_template]
+    cmd = ["yt-dlp", "--no-playlist", "--ffmpeg-location", FFMPEG_PATH, "-o", out_template]
 
     if format_choice == "audio":
-        cmd += ["-x", "--audio-format", "mp3"]
+        cmd += ["-x", "--audio-format", "mp3", "--audio-quality", "0"]
     elif format_id:
         cmd += ["-f", f"{format_id}+bestaudio/best", "--merge-output-format", "mp4"]
     else:
@@ -47,7 +48,7 @@ def run_download(job_id, url, format_choice, format_id):
     cmd.append(url)
 
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300, env=SUBPROCESS_ENV)
         if result.returncode != 0:
             job["status"] = "error"
             job["error"] = result.stderr.strip().split("\n")[-1]
@@ -105,7 +106,7 @@ def get_info():
 
     cmd = ["yt-dlp", "--no-playlist", "-j", url]
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60, env=SUBPROCESS_ENV)
         if result.returncode != 0:
             return jsonify({"error": result.stderr.strip().split("\n")[-1]}), 400
 

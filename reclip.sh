@@ -44,6 +44,6 @@ PORT="${PORT:-8899}"
 export PORT
 
 echo ""
-echo "  WorkClip is running at http://localhost:$PORT"
+echo "  ReClip is running at http://localhost:$PORT"
 echo ""
 python3 app.py
