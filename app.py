@@ -2,21 +2,51 @@ import os
 import uuid
 import glob
 import json
+import shutil
 import subprocess
 import threading
-import imageio_ffmpeg
 from flask import Flask, request, jsonify, send_file, render_template
 
 app = Flask(__name__)
 DOWNLOAD_DIR = os.path.join(os.path.dirname(__file__), "downloads")
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-FFMPEG_PATH = imageio_ffmpeg.get_ffmpeg_exe()
-FFMPEG_DIR = os.path.dirname(FFMPEG_PATH)
 
-# Build a subprocess environment that always has ffmpeg in PATH
+def _find_ffmpeg_dir():
+    """
+    Return the directory that contains BOTH ffmpeg and ffprobe.
+    Prefer the system install (from Nix) because imageio_ffmpeg only
+    ships the ffmpeg binary without ffprobe, which causes yt-dlp's
+    post-processing to fail with 'unable to obtain file audio codec'.
+    """
+    sys_ffprobe = shutil.which("ffprobe")
+    sys_ffmpeg = shutil.which("ffmpeg")
+    if sys_ffprobe and sys_ffmpeg:
+        ffprobe_dir = os.path.dirname(os.path.realpath(sys_ffprobe))
+        ffmpeg_dir = os.path.dirname(os.path.realpath(sys_ffmpeg))
+        if ffprobe_dir == ffmpeg_dir:
+            return ffmpeg_dir
+
+    try:
+        import imageio_ffmpeg
+        imageio_path = imageio_ffmpeg.get_ffmpeg_exe()
+        imageio_dir = os.path.dirname(imageio_path)
+        if shutil.which("ffprobe", path=imageio_dir):
+            return imageio_dir
+    except Exception:
+        pass
+
+    if sys_ffmpeg:
+        return os.path.dirname(os.path.realpath(sys_ffmpeg))
+
+    return None
+
+
+FFMPEG_DIR = _find_ffmpeg_dir()
+
 _base_env = os.environ.copy()
-_base_env["PATH"] = FFMPEG_DIR + os.pathsep + _base_env.get("PATH", "")
+if FFMPEG_DIR:
+    _base_env["PATH"] = FFMPEG_DIR + os.pathsep + _base_env.get("PATH", "")
 SUBPROCESS_ENV = _base_env
 
 jobs = {}
@@ -32,14 +62,26 @@ def add_extension_headers(response):
     return response
 
 
+def _build_base_cmd(out_template):
+    cmd = ["yt-dlp", "--no-playlist", "-o", out_template]
+    if FFMPEG_DIR:
+        cmd += ["--ffmpeg-location", FFMPEG_DIR]
+    return cmd
+
+
 def run_download(job_id, url, format_choice, format_id):
     job = jobs[job_id]
     out_template = os.path.join(DOWNLOAD_DIR, f"{job_id}.%(ext)s")
 
-    cmd = ["yt-dlp", "--no-playlist", "--ffmpeg-location", FFMPEG_PATH, "-o", out_template]
+    cmd = _build_base_cmd(out_template)
 
     if format_choice == "audio":
-        cmd += ["-x", "--audio-format", "mp3", "--audio-quality", "0"]
+        cmd += [
+            "-x",
+            "--audio-format", "mp3",
+            "--audio-quality", "0",
+            "--postprocessor-args", "ffmpeg:-ar 44100",
+        ]
     elif format_id:
         cmd += ["-f", f"{format_id}+bestaudio/best", "--merge-output-format", "mp4"]
     else:
@@ -50,8 +92,10 @@ def run_download(job_id, url, format_choice, format_id):
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=300, env=SUBPROCESS_ENV)
         if result.returncode != 0:
+            stderr_lines = [l for l in result.stderr.strip().splitlines() if l.strip()]
+            error_msg = stderr_lines[-1] if stderr_lines else "Download failed"
             job["status"] = "error"
-            job["error"] = result.stderr.strip().split("\n")[-1]
+            job["error"] = error_msg
             return
 
         files = glob.glob(os.path.join(DOWNLOAD_DIR, f"{job_id}.*"))
@@ -78,7 +122,6 @@ def run_download(job_id, url, format_choice, format_id):
         job["file"] = chosen
         ext = os.path.splitext(chosen)[1]
         title = job.get("title", "").strip()
-        # Sanitize title for filename
         if title:
             safe_title = "".join(c for c in title if c not in r'\/:*?"<>|').strip()[:20].strip()
             job["filename"] = f"{safe_title}{ext}" if safe_title else os.path.basename(chosen)
@@ -105,14 +148,17 @@ def get_info():
         return jsonify({"error": "No URL provided"}), 400
 
     cmd = ["yt-dlp", "--no-playlist", "-j", url]
+    if FFMPEG_DIR:
+        cmd += ["--ffmpeg-location", FFMPEG_DIR]
+
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=60, env=SUBPROCESS_ENV)
         if result.returncode != 0:
-            return jsonify({"error": result.stderr.strip().split("\n")[-1]}), 400
+            stderr_lines = [l for l in result.stderr.strip().splitlines() if l.strip()]
+            return jsonify({"error": stderr_lines[-1] if stderr_lines else "Failed to fetch info"}), 400
 
         info = json.loads(result.stdout)
 
-        # Build quality options — keep best format per resolution
         best_by_height = {}
         for f in info.get("formats", []):
             height = f.get("height")
@@ -181,7 +227,29 @@ def download_file(job_id):
     job = jobs.get(job_id)
     if not job or job["status"] != "done":
         return jsonify({"error": "File not ready"}), 404
-    return send_file(job["file"], as_attachment=True, download_name=job["filename"])
+
+    filepath = job["file"]
+    filename = job["filename"]
+    ext = os.path.splitext(filename)[1].lower()
+
+    mime_map = {
+        ".mp4": "video/mp4",
+        ".mp3": "audio/mpeg",
+        ".webm": "video/webm",
+        ".m4a": "audio/mp4",
+        ".ogg": "audio/ogg",
+    }
+    mimetype = mime_map.get(ext, "application/octet-stream")
+
+    response = send_file(
+        filepath,
+        as_attachment=True,
+        download_name=filename,
+        mimetype=mimetype,
+    )
+    response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
 
 
 if __name__ == "__main__":
